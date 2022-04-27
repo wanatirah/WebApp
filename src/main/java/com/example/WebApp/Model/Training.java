@@ -11,6 +11,7 @@ import org.deeplearning4j.nn.conf.layers.LSTM;
 import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.weights.WeightInit;
+import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.deeplearning4j.ui.api.UIServer;
 import org.deeplearning4j.ui.model.stats.StatsListener;
 import org.deeplearning4j.ui.model.storage.InMemoryStatsStorage;
@@ -18,6 +19,7 @@ import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.common.io.ClassPathResource;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.evaluation.classification.ROC;
+import org.nd4j.evaluation.regression.RegressionEvaluation;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
@@ -48,19 +50,18 @@ public class Training {
         trainFeatures.initialize(new NumberedFileInputSplit(featuresTrainDir.getAbsolutePath() + "/temp_features_%d.csv", 0, 0));
         SequenceRecordReader trainLabels = new CSVSequenceRecordReader();
         trainLabels.initialize(new NumberedFileInputSplit(labelsTrainDir.getAbsolutePath() + "/temp_labels_%d.csv", 0, 0));
-        DataSetIterator trainData = new SequenceRecordReaderDataSetIterator(trainFeatures, trainLabels, BatchSize, numLabelClasses, false);
-
+        DataSetIterator trainData = new SequenceRecordReaderDataSetIterator(trainFeatures, trainLabels, BatchSize, numLabelClasses, true);
 
         //load testing data
         SequenceRecordReader testFeatures = new CSVSequenceRecordReader(0, ",");
         testFeatures.initialize(new NumberedFileInputSplit(featuresTestDir.getAbsolutePath() + "/temp_features_%d.csv", 0, 0));
         SequenceRecordReader testLabels = new CSVSequenceRecordReader();
         testLabels.initialize(new NumberedFileInputSplit(labelsTestDir.getAbsolutePath() + "/temp_labels_%d.csv", 0, 0));
-        DataSetIterator testData = new SequenceRecordReaderDataSetIterator(testFeatures, testLabels, BatchSize, numLabelClasses, false);
+        DataSetIterator testData = new SequenceRecordReaderDataSetIterator(testFeatures, testLabels, BatchSize, numLabelClasses, true);
 
-        int numInputs = 1;
+        int numInputs = trainData.inputColumns();
         int numOutput = 1;
-        int epochs = 1;
+        int epochs = 50;
         int seedNumber = 123;
         double learningRate = 0.01;
 
@@ -89,74 +90,36 @@ public class Training {
                 .backpropType(BackpropType.Standard)
                 .build();
 
-
-        StatsStorage storage = new InMemoryStatsStorage();
-        UIServer server = UIServer.getInstance();
-        server.attach(storage);
-
         ComputationGraph model = new ComputationGraph(config);
         model.init();
-        model.setListeners(new StatsListener(storage, 1));
+        model.setListeners(new ScoreIterationListener(1));
 
         int evalStep = 5;
-
-        for(int i = 0; i < epochs; ++i)
-        {
+        for(int i = 0; i < epochs; ++i) {
             model.fit(trainData);
-
-            if(i % evalStep == 0)
-            {
-
-                ROC roc = new ROC(100);
-                while (testData.hasNext())
-                {
+            if(i % evalStep == 0) {
+                while (testData.hasNext()) {
                     DataSet batch = testData.next();
                     INDArray[] output = model.output(batch.getFeatures());
-                    roc.evalTimeSeries(batch.getLabels(), output[0]);
-
+                    System.out.println(output);
                 }
 
-                System.out.println("EPOCH " + i + " VALID AUC: " + roc.calculateAUC());
-                testData.reset();
+                //Evaluation at every 5 epoch
+                System.out.println("***** Train Evaluation *****");
+                RegressionEvaluation evalTrain = model.evaluateRegression(trainData);
+                System.out.println(evalTrain.stats());
+
+                System.out.println("***** Test Evaluation *****");
+                RegressionEvaluation evalTest = model.evaluateRegression(testData);
+                System.out.println(evalTest.stats());
 
                 /*
                 Save the model
                 */
                 File locationToSave = new File(new ClassPathResource("Data/").getFile().getAbsolutePath().toString() + "_" + i + ".zip");
-                ModelSerializer.writeModel(model, locationToSave, false);
+                ModelSerializer.writeModel(model, locationToSave, true);
                 System.out.println("Model at epoch " + i + " save at " + locationToSave.toString());
             }
         }
-
-        //ROC
-        /*
-        Evaluate the results
-        */
-        ROC roc = new ROC(100);
-        while (testData.hasNext())
-        {
-            DataSet batch = testData.next();
-            INDArray[] output = model.output(batch.getFeatures());
-            roc.evalTimeSeries(batch.getLabels(), output[0], batch.getLabelsMaskArray());
-        }
-        System.out.println("***** ROC Test Evaluation *****");
-        System.out.println(roc.calculateAUC());
-
-        testData.reset();
-
-        //Evaluation
-        System.out.println("***** Test Evaluation *****");
-        Evaluation eval = new Evaluation(numLabelClasses);
-
-        while(testData.hasNext())
-        {
-            DataSet testDataSet = testData.next();
-            INDArray[] predicted = model.output(testDataSet.getFeatures());
-            INDArray labels = testDataSet.getLabels();
-            eval.evalTimeSeries(labels, predicted[0], testDataSet.getLabelsMaskArray());
-        }
-
-        System.out.println(eval.confusionToString());
-        System.out.println(eval.stats());
     }
 }

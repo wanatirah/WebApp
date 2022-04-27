@@ -1,6 +1,6 @@
 package com.example.WebApp.Email;
 
-import com.example.WebApp.AppUser.AppUser;
+import com.example.WebApp.AppUser.User;
 import org.springframework.web.util.UriComponentsBuilder;
 
 public class AccountVerificationEmailContext extends AbstractEmailContext {
@@ -9,7 +9,7 @@ public class AccountVerificationEmailContext extends AbstractEmailContext {
 
     @Override
     public <T> void init(T context){
-        AppUser customer = (AppUser) context; // we pass the customer information
+        User customer = (User) context; // we pass the customer information
         put("firstName", customer.getFirstName());
         setTemplateLocation("emails/email-verification");
         setSubject("Complete your registration");

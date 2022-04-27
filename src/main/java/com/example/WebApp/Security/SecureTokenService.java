@@ -2,6 +2,7 @@ package com.example.WebApp.Security;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.tomcat.util.codec.binary.Base64;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.keygen.BytesKeyGenerator;
 import org.springframework.security.crypto.keygen.KeyGenerators;
@@ -22,7 +23,8 @@ public class SecureTokenService {
     @Value("${webApp.secure.token.validity}")
     private int tokenValidityInSeconds;
 
-    private SecureTokenRepositories tokenRepositories;
+    @Autowired
+    private SecureTokenRepository secureTokenRepository;
 
     public SecureToken createSecureToken(){
         String tokenValue = new String(Base64.encodeBase64URLSafe(DEFAULT_TOKEN_GENERATOR.generateKey()), US_ASCII);
@@ -34,15 +36,19 @@ public class SecureTokenService {
     }
 
     public void saveSecureToken(SecureToken token) {
-        tokenRepositories.save(token);
+        secureTokenRepository.save(token);
     }
 
     public SecureToken findByToken(String token) {
-        return tokenRepositories.findByToken(token);
+        return secureTokenRepository.findByToken(token);
     }
 
     public void removeToken(SecureToken token) {
-        tokenRepositories.delete(token);
+        secureTokenRepository.delete(token);
+    }
+
+    public void removeTokenByToken(String token) {
+        secureTokenRepository.removeByToken(token);
     }
 
     public int getTokenValidityInSeconds() {

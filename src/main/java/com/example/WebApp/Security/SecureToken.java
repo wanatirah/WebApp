@@ -1,6 +1,6 @@
 package com.example.WebApp.Security;
 
-import com.example.WebApp.AppUser.AppUser;
+import com.example.WebApp.AppUser.User;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -43,17 +43,10 @@ public class SecureToken {
 
     @ManyToOne
     @JoinColumn(name = "user_id", referencedColumnName ="id")
-    private AppUser user;
+    private User user;
 
     @Transient
     private Boolean isExpired;
-
-    public SecureToken(String token, Timestamp timestamp, LocalDateTime expireAt, AppUser user) {
-        this.token = token;
-        this.timestamp = timestamp;
-        this.expireAt = expireAt;
-        this.user = user;
-    }
 
     public boolean isExpired() {
         return getExpireAt().isBefore(LocalDateTime.now());

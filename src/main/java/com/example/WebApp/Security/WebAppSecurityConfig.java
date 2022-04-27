@@ -1,6 +1,5 @@
 package com.example.WebApp.Security;
 
-import com.example.WebApp.AppUser.AppUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -10,8 +9,7 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
@@ -23,19 +21,18 @@ import javax.sql.DataSource;
 @EnableWebSecurity
 public class WebAppSecurityConfig extends WebSecurityConfigurerAdapter {
 
-    private final AppUserService userService;
+    @Autowired
+    UserDetailsService userDetailsService;
 
-    private final BCryptPasswordEncoder passwordEncoder;
+    @Autowired
+    DataSource dataSource;
 
-    private final DataSource dataSource;
-
+    @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
                 .authorizeRequests()
-                .antMatchers("/login", "/register", "/home")
-                .permitAll()
-                .antMatchers("/account/**")
-                .hasAuthority("USER")
+                .antMatchers("/login", "/register", "/index", "/tables", "/error").permitAll()
+//                .antMatchers("/").authenticated()
                 .and()
 
                 // remember me configurations
@@ -43,7 +40,7 @@ public class WebAppSecurityConfig extends WebSecurityConfigurerAdapter {
                 .tokenRepository(persistentTokenRepository())
                 .rememberMeCookieDomain("domain")
                 .rememberMeCookieName("custom-remember-me-cookie")
-                .userDetailsService(this.userService)
+                .userDetailsService(this.userDetailsService)
                 .tokenValiditySeconds(2000)
                 .useSecureCookie(true)
                 .and()
@@ -62,6 +59,11 @@ public class WebAppSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
     public PersistentTokenRepository persistentTokenRepository() {
         JdbcTokenRepositoryImpl db = new JdbcTokenRepositoryImpl();
         db.setDataSource(dataSource);
@@ -71,19 +73,13 @@ public class WebAppSecurityConfig extends WebSecurityConfigurerAdapter {
     @Bean
     public DaoAuthenticationProvider authProvider() {
         DaoAuthenticationProvider auth = new DaoAuthenticationProvider();
-        auth.setPasswordEncoder(passwordEncoder);
-        auth.setUserDetailsService(userService);
+        auth.setPasswordEncoder(passwordEncoder());
+        auth.setUserDetailsService(userDetailsService);
         return auth;
     }
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth) {
         auth.authenticationProvider(authProvider());
-    }
-
-    @Bean
-    public SessionRegistry sessionRegistry() {
-        SessionRegistry sessionRegistry = new SessionRegistryImpl();
-        return sessionRegistry;
     }
 }

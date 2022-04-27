@@ -5,10 +5,10 @@ import lombok.*;
 import javax.validation.constraints.NotEmpty;
 import java.io.Serializable;
 
-@RequiredArgsConstructor
 @Getter
 @Setter
 @EqualsAndHashCode
+@RequiredArgsConstructor
 @ToString
 public class UserDataRequest implements Serializable {
 

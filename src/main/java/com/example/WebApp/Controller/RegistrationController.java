@@ -1,10 +1,12 @@
 package com.example.WebApp.Controller;
 
-import com.example.WebApp.AppUser.AppUserService;
+import com.example.WebApp.AppUser.UserService;
 import com.example.WebApp.Dto.UserDataRequest;
 import com.example.WebApp.Exception.InvalidTokenException;
 import com.example.WebApp.Exception.UserAlreadyExistException;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
@@ -15,7 +17,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import org.thymeleaf.util.StringUtils;
 
 import javax.validation.Valid;
 
@@ -24,22 +25,25 @@ import javax.validation.Valid;
 @RequestMapping("/register")
 public class RegistrationController {
 
-    private AppUserService userService;
+    private static final String REDIRECT_LOGIN = "redirect:/login";
 
+    @Autowired
+    private UserService userService;
+
+    @Autowired
     private MessageSource messageSource;
 
-    @GetMapping("/register")
+    @GetMapping
     public String register(final Model model) {
         model.addAttribute("userData", new UserDataRequest());
-        return "account/register";
+        return "register";
     }
 
-    // after the validation the information is posted
     @PostMapping
     public String userRegistration(final @Valid UserDataRequest userData, final BindingResult bindingResult, final Model model) {
         if (bindingResult.hasErrors()) {
-            model.addAttribute("userData", userData);
-            return "pages-register";
+            model.addAttribute("registrationForm", userData);
+            return "register";
         }
 
         try {
@@ -47,26 +51,28 @@ public class RegistrationController {
         } catch (UserAlreadyExistException e) {
             bindingResult.rejectValue("email", "userData.email", "An account already exists for this email.");
             model.addAttribute("registrationForm", userData);
-            return "pages-register";
+            return "register";
         }
 
-        return "redirect:account/starter";
+        model.addAttribute("registrationMsg", messageSource.getMessage("user.registration.verification.email.msg", null, LocaleContextHolder.getLocale()));
+        return "register";
     }
 
     @GetMapping("/verify")
-    public String verifyUser(@RequestParam(required = false) String token, final Model model, RedirectAttributes redirectAttributes) {
+    public String verifyCustomer(@RequestParam(required = false) String token, final Model model, RedirectAttributes redirAttr) {
         if (StringUtils.isEmpty(token)) {
-            redirectAttributes.addFlashAttribute("tokenError", messageSource.getMessage("user.registration.verification.missing.token", null, LocaleContextHolder.getLocale()));
-            return "redirect:/pages-login";
+            redirAttr.addFlashAttribute("tokenError", messageSource.getMessage("user.registration.verification.missing.token", null, LocaleContextHolder.getLocale()));
+            return REDIRECT_LOGIN;
         }
+
         try {
             userService.verifyUser(token);
         } catch (InvalidTokenException e) {
-            redirectAttributes.addFlashAttribute("tokenError", messageSource.getMessage("user.registration.verification.invalid.token", null,LocaleContextHolder.getLocale()));
-            return "redirect:/pages-login";
+            redirAttr.addFlashAttribute("tokenError", messageSource.getMessage("user.registration.verification.invalid.token", null, LocaleContextHolder.getLocale()));
+            return REDIRECT_LOGIN;
         }
 
-        redirectAttributes.addFlashAttribute("verifiedAccountMsg", messageSource.getMessage("user.registration.verification.success", null,LocaleContextHolder.getLocale()));
-        return "redirect:/pages-login";
+        redirAttr.addFlashAttribute("verifiedAccountMsg", messageSource.getMessage("user.registration.verification.success", null, LocaleContextHolder.getLocale()));
+        return REDIRECT_LOGIN;
     }
 }

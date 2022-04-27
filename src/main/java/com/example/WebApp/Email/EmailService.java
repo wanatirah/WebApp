@@ -16,8 +16,10 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class EmailService {
 
+    @Autowired
     private JavaMailSender emailSender;
 
+    @Autowired
     private SpringTemplateEngine templateEngine;
 
     public void sendMail(AbstractEmailContext email) throws MessagingException {
